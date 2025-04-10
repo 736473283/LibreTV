@@ -34,7 +34,7 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="page-bg text-white">
-    <!-- 密码保护部分 -->
+   <!-- 密码保护部分 -->
 <div id="password-protection" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #181818; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center;">
     <h1 style="color: #fff; margin-bottom: 20px;">LibreTV 访问控制</h1>
     <div style="display: flex; flex-direction: column; width: 300px;">
@@ -45,52 +45,102 @@
 </div>
 <!-- 添加密码验证脚本 -->
 <script>
-    (function() {
-        // 设置密码 - 你可以修改这个值为你想要的密码
-        const correctPassword = "movie@#1234";
+(function() {
+    // 禁用右键菜单
+    document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+    });
+    
+    // 禁用F12键
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I') || (e.ctrlKey && e.key === 'U')) {
+            e.preventDefault();
+        }
+    });
+    
+    // 检测DevTools是否打开
+    let devtoolsDetector = setInterval(function() {
+        const widthThreshold = window.outerWidth - window.innerWidth > 160;
+        const heightThreshold = window.outerHeight - window.innerHeight > 160;
+        if (widthThreshold || heightThreshold) {
+            document.body.innerHTML = '禁止使用开发者工具访问本站';
+        }
+    }, 1000);
+    
+    // 生成当前日期密码
+    function getCurrentDatePassword() {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        return `${yyyy}${mm}${dd}`;
+    }
+    
+    // 检查密码和登录状态
+    function checkAuth() {
+        const authData = localStorage.getItem('libretv_auth');
+        if (!authData) return false;
         
-        // 检查是否已经登录
-        const isLoggedIn = localStorage.getItem('libretv_auth') === 'true';
+        try {
+            const auth = JSON.parse(authData);
+            const now = new Date().getTime();
+            // 检查授权是否过期（7天）
+            if (auth && auth.timestamp && now - auth.timestamp < 7 * 24 * 60 * 60 * 1000) {
+                return true;
+            }
+        } catch(e) {
+            return false;
+        }
         
-        // 获取DOM元素
-        const passwordProtection = document.getElementById('password-protection');
-        const passwordInput = document.getElementById('access-password');
-        const submitButton = document.getElementById('submit-password');
-        const errorMessage = document.getElementById('password-error');
+        // 清除过期授权
+        localStorage.removeItem('libretv_auth');
+        return false;
+    }
+    
+    // 获取DOM元素
+    const passwordProtection = document.getElementById('password-protection');
+    const passwordInput = document.getElementById('access-password');
+    const submitButton = document.getElementById('submit-password');
+    const errorMessage = document.getElementById('password-error');
+    
+    // 如果已登录，隐藏密码保护层
+    if (checkAuth()) {
+        passwordProtection.style.display = 'none';
+    }
+    
+    // 添加点击事件
+    submitButton.addEventListener('click', verifyPassword);
+    
+    // 添加回车键事件
+    passwordInput.addEventListener('keyup', function(event) {
+        if (event.key === 'Enter') {
+            verifyPassword();
+        }
+    });
+    
+    // 密码验证函数
+    function verifyPassword() {
+        const enteredPassword = passwordInput.value;
+        const correctPassword = getCurrentDatePassword();
         
-        // 如果已登录，隐藏密码保护层
-        if (isLoggedIn) {
+        if (enteredPassword === correctPassword) {
+            // 密码正确，存储登录状态并隐藏保护层
+            const authData = {
+                timestamp: new Date().getTime(),
+                granted: true
+            };
+            localStorage.setItem('libretv_auth', JSON.stringify(authData));
             passwordProtection.style.display = 'none';
+        } else {
+            // 密码错误，显示错误信息
+            errorMessage.style.display = 'block';
+            passwordInput.value = '';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 3000);
         }
-        
-        // 添加点击事件
-        submitButton.addEventListener('click', checkPassword);
-        
-        // 添加回车键事件
-        passwordInput.addEventListener('keyup', function(event) {
-            if (event.key === 'Enter') {
-                checkPassword();
-            }
-        });
-        
-        // 密码验证函数
-        function checkPassword() {
-            const enteredPassword = passwordInput.value;
-            
-            if (enteredPassword === correctPassword) {
-                // 密码正确，存储登录状态并隐藏保护层
-                localStorage.setItem('libretv_auth', 'true');
-                passwordProtection.style.display = 'none';
-            } else {
-                // 密码错误，显示错误信息
-                errorMessage.style.display = 'block';
-                passwordInput.value = '';
-                setTimeout(() => {
-                    errorMessage.style.display = 'none';
-                }, 3000);
-            }
-        }
-    })();
+    }
+})();
 </script>
     <div class="fixed top-4 right-4 z-50 flex items-center space-x-4">
         <button onclick="toggleSettings(event)" class="bg-[#222] hover:bg-[#333] border border-[#333] hover:border-white rounded-lg px-4 py-2 transition-colors" aria-label="打开设置">
